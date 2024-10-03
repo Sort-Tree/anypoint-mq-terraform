@@ -1,6 +1,6 @@
 # Terraform Anypoint MQ Provisioning
 
-This repository contains Terraform code to provision queues, exchanges, dead-letter queues (DLQs), and bindings in MuleSoft Anypoint MQ. The configuration is customizable via a `terraform.tfvars` file, allowing users to add prefixes, suffixes, environment configuration, and queue/exchange definitions.
+This repository contains Terraform code to provision queues, exchanges, dead-letter queues (DLQs), and bindings in MuleSoft Anypoint MQ. The configuration is customizable via a `demo.tfvars` file, allowing users to add prefixes, suffixes, environment configuration, and queue/exchange definitions.
 
 ## Features
 - **Create Queues:** Define queues with customizable names, prefixes, and suffixes.
@@ -15,8 +15,8 @@ Before you can use this Terraform code, ensure that you have the following:
    - Installation instructions can be found [here](https://learn.hashicorp.com/tutorials/terraform/install-cli).
    
 2. **MuleSoft Anypoint Account**: You will need credentials to access your MuleSoft Anypoint organization:
-   - Username
-   - Password
+   - Username or Connected App Client ID
+   - Password or Connected App Client Secret
    - Organization ID
    - Environment ID (of the target environment for deployment)
 
@@ -33,28 +33,48 @@ The following variables are available for customization in `terraform.tfvars`:
 | `queues`         | List of queue and exchange configurations (name and binding).   | List   | `[]`          |
 | `prefix`         | Optional prefix for queue names.                                | String | `""`          |
 | `suffix`         | Optional suffix for queue names.                                | String | `""`          |
-| `environment_id` | MuleSoft environment ID where the resources will be provisioned.| String | N/A           |
+| `env_id`         | MuleSoft environment ID where the resources will be provisioned.| String | N/A           |
 | `region`         | Region for Anypoint MQ resources.                               | String | `"us-east-1"` |
 
 ### Example `terraform.tfvars`
 ```hcl
-prefix = "app_"
-suffix = "_queue"
+prefix        = "acme-"
+suffix        = "-dev"
+client_id     = "add-here"
+client_secret = "add-here"
+cplane        = "eu"
+org_id        = "add-here"
+env_id        = "add-here"
+region        = "eu-central-1"
 
-environment_id = "your-environment-id"
-
-region = "us-east-1"
 
 queues = [
   {
-    queue_name    = "orders"
-    exchange_name = "order_events"
+    queue_name       = "orders"
+    fifo             = false
+    default_ttl      = 604800000
+    default_lock_ttl = 120000
+    max_deliveries   = 10
   },
   {
-    queue_name    = "payments"
-    exchange_name = "payment_events"
+    queue_name       = "payments"
+    fifo             = false
+    default_ttl      = 604800000
+    default_lock_ttl = 120000
+    max_deliveries   = 10
   }
 ]
+
+exchanges = [
+  {
+    exchange_name = "simple"
+    encrypted     = false
+    queues = [
+      "payments"
+    ]
+  }
+]
+
 ```
 ## How to Add New Queues and Exchanges
 Define each queue and its corresponding exchange in the queues list.
@@ -65,7 +85,7 @@ Every queue will automatically have a corresponding DLQ created, with the suffix
 Step 1: Clone the Repository
 bash
 Copy code
-git clone https://github.com/yourusername/anypoint-mq-terraform.git
+git clone https://github.com/Sort-Tree/anypoint-mq-terraform.git
 cd anypoint-mq-terraform
 
 Step 2: Set Up Environment Variables

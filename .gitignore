@@ -1,0 +1,13 @@
+.idea
+
+# Ignore hidden files
+**/.*
+!.gitignore
+
+# Terraform state files
+**/*.tfstate*
+
+/local-resources/*
+**/local-resources/*
+!.github
+# !.terraform.lock.hcl

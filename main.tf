@@ -1,51 +1,74 @@
-provider "anypoint" {
-  client_id = var.client_id             # optionally use ANYPOINT_CLIENT_ID env var
-  client_secret = var.client_secret     # optionally use ANYPOINT_CLIENT_SECRET env var
+locals {
+  exchange_binding = flatten([for indexExchange, valueExchange in var.exchanges : [
+    for indexQueue, valueQueue in valueExchange.queues : {
+      org_id      = var.org_id
+      env_id      = var.env_id
+      region_id   = var.region
+      exchange_id = "${var.prefix}${valueExchange.exchange_name}${var.suffix}"
+      queue_id    = "${var.prefix}${valueQueue}${var.suffix}"
+    }
+  ]])
 
-  # You may need to change the anypoint control plane: use 'eu' or 'us'
-  # by default the control plane is 'us'
-  cplane= var.cplane                    # optionnaly use ANYPOINT_CPLANE env var
 }
 
-# Creating exchanges
-resource "anypoint_ame" "exchange" {
-  for_each = { for exchange in var.queues : exchange.exchange_name => exchange }
 
-  exchange_id       = each.key
-  region     = var.region
-  env_id     = var.environment_id
-  org_id     = var.org_id
-  region_id = var.region
-  encrypted = true
+# Creating DLQs for all queues
+resource "anypoint_amq" "dlq" {
+  for_each = { for queue in var.queues : queue.queue_name => queue }
+
+  org_id           = var.org_id
+  env_id           = var.env_id
+  region_id        = var.region
+  queue_id         = "${var.prefix}${each.key}-dlq${var.suffix}"
+  fifo             = each.value.fifo
+  default_ttl      = each.value.default_ttl
+  default_lock_ttl = each.value.default_lock_ttl
 }
 
 # Creating queues
 resource "anypoint_amq" "queue" {
   for_each = { for queue in var.queues : queue.queue_name => queue }
 
-  name         = "${var.prefix}${each.key}${var.suffix}"
-  region       = var.region
-  environment_id = var.environment_id
-
-  org_id = var.org_id
-  env_id = var.env_id
-  region_id = var.region
-  queue_id = "${var.prefix}${each.key}${var.suffix}"
-  fifo = false
-  default_ttl = 604800000
-  default_lock_ttl = 120000
+  org_id               = var.org_id
+  env_id               = var.env_id
+  region_id            = var.region
+  queue_id             = "${var.prefix}${each.key}${var.suffix}"
+  fifo                 = each.value.fifo
+  default_ttl          = each.value.default_ttl
+  default_lock_ttl     = each.value.default_lock_ttl
   dead_letter_queue_id = "${var.prefix}${each.key}-dlq${var.suffix}"
-  max_deliveries = 10
+  max_deliveries       = each.value.max_deliveries
 
+  depends_on = [
+    anypoint_amq.dlq
+  ]
+}
+
+# Creating exchanges
+resource "anypoint_ame" "exchange" {
+  for_each = { for exchange in var.exchanges : exchange.exchange_name => exchange }
+
+  exchange_id = "${var.prefix}${each.key}${var.suffix}"
+  env_id      = var.env_id
+  org_id      = var.org_id
+  region_id   = var.region
+  encrypted   = each.value.encrypted
 }
 
 # Binding queues to exchanges
-resource "anypoint_ame_binding" "binding" {
-  for_each = { for queue in var.queues : queue.queue_name => queue }
+resource "anypoint_ame_binding" "ame_binding" {
 
-  org_id = var.org_id
-  env_id = var.env_id
-  region_id = var.region
-  exchange_id = anypoint_ame.exchange[each.value.exchange_name].id
-  queue_id = anypoint_amq.queue[each.key].id
+  for_each = { for bindings in local.exchange_binding : bindings.exchange_id => bindings }
+
+  org_id      = each.value.org_id
+  env_id      = each.value.env_id
+  region_id   = each.value.region_id
+  exchange_id = each.value.exchange_id
+  queue_id    = each.value.queue_id
 }
+
+output "name" {
+  value       = local.exchange_binding
+  description = "description"
+}
+

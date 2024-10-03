@@ -1,8 +1,21 @@
 variable "queues" {
   description = "List of queues and their attributes"
-  type        = list(object({
-    queue_name = string
+  type = list(object({
+    queue_name       = string
+    fifo             = bool
+    default_ttl      = number
+    default_lock_ttl = number
+    max_deliveries   = number
+  }))
+  default = []
+}
+
+variable "exchanges" {
+  description = "List of exchanges"
+  type = list(object({
     exchange_name = string
+    encrypted     = bool
+    queues        = list(string)
   }))
   default = []
 }
@@ -40,7 +53,7 @@ variable "client_id" {
 variable "cplane" {
   description = "Control Plane"
   type        = string
-  default     = "US"
+  default     = "us"
 }
 
 variable "org_id" {
